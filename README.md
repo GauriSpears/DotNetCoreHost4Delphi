@@ -1,66 +1,66 @@
-﻿# Integrando Delphi com .NET Core: Guia Completo
+﻿# Integrating Delphi with .NET Core: Complete Guide
 
-## Introdução
+## Introduction
 
-Este guia apresenta abordagens para integrar aplicações Delphi com o .NET Core, focando no método de hosting que permite chamar código gerenciado .NET Core a partir de código nativo Delphi.
+This guide presents approaches for integrating Delphi applications with .NET Core, focusing on the hosting method that allows you to call managed .NET Core code from native Delphi code.
 
-## Contexto do Problema
+## Problem Context
 
-O .NET Framework permitia facilmente chamar objetos e métodos a partir de aplicações nativas como Delphi:
-- Via registro COM no Windows (opção limitada ao Windows)
-- Via processo HOST inicializado pelo código nativo (mais flexível)
+The .NET Framework allowed you to easily call objects and methods from native applications like Delphi:
+- Via COM registration on Windows (option limited to Windows)
+- Via a host process initialized by native code (more flexible)
 
-Com a transição do .NET Framework (agora legado) para o .NET Core (atual e futuro), surgiram novos desafios:
-- O .NET Core continua suportando COM apenas no Windows
-- É necessária uma estratégia multiplataforma para integração nativa
+With the transition from .NET Framework (now legacy) to .NET Core (current and future), new challenges emerged:
+- .NET Core continues to support COM only on Windows
+- A cross-platform strategy is required for native integration
 
-## Soluções Disponíveis
+## Available Solutions
 
-### 1. Nova API de Hosting do .NET Core
+### 1. New .NET Core Hosting API
 
-A Microsoft introduziu uma nova API de hosting para o .NET Core a partir da versão 3.0, que substitui a antiga coreclrhost.h. Esta nova solução usa:
+Microsoft introduced a new hosting API for .NET Core starting with version 3.0, which replaces the old coreclrhost.h. This new solution uses:
 
-- **Biblioteca nethost**: fornece funções para localizar a biblioteca hostfxr
-- **Biblioteca hostfxr**: contém as APIs para inicializar e gerenciar o runtime do .NET Core
+- **nethost library**: Provides functions to locate the hostfxr library
+- **hostfxr library**: Contains the APIs for initializing and managing the .NET Core runtime
 
-Eis o fluxo básico para usar esta API:
+Here's the basic flow for using this API:
 
-1. Usar `get_hostfxr_path()` para localizar o hostfxr
-2. Carregar a biblioteca hostfxr e obter seus pontos de exportação
-3. Inicializar o runtime com `hostfxr_initialize_for_runtime_config()`
-4. Obter um delegate para funcionalidades do runtime com `hostfxr_get_runtime_delegate()`
-5. Usar o delegate para carregar assemblies e obter ponteiros para métodos gerenciados
-6. Chamar os métodos gerenciados
+1. Use `get_hostfxr_path()` to locate hostfxr
+2. Load the hostfxr library and get its export points
+3. Initialize the runtime with `hostfxr_initialize_for_runtime_config()`
+4. Get a delegate for runtime functionality with `hostfxr_get_runtime_delegate()`
+5. Use the delegate to load assemblies and get pointers to managed methods
+6. Call the managed methods
 
-### 2. Biblioteca dotNetCore4Delphi
+### 2. dotNetCore4Delphi Library
 
-Uma solução comercial produzida pela CrystalNet Technologies, especificamente para integração entre Delphi e .NET Core:
+A commercial solution produced by CrystalNet Technologies, specifically for integration between Delphi and .NET Core:
 
-- Hospeda o Common Language Runtime (CoreCLR) diretamente do Delphi
-- Permite carregar e acessar assemblies/tipos de bibliotecas .NET Core
-- Fornece mecanismos para invocar membros de tipos .NET Core
-- Inclui suporte para criar instâncias, gerenciar eventos e exceções
-- Oferece ferramentas para gerar código Delphi a partir de bibliotecas .NET Core
+- Hosts the Common Language Runtime (CoreCLR) directly from Delphi
+- Allows you to load and access assemblies/types from .NET Core libraries
+- Provides mechanisms for invoking members of .NET Core types
+- Includes support for creating instances, managing events, and exceptions
+- Provides tools for generating Delphi code from .NET Core libraries
 
-## Implementação da Solução de Hosting
+## Implementing the Hosting Solution
 
-A abordagem recomendada para seu caso é a implementação nativa do hosting do .NET Core usando as bibliotecas nethost e hostfxr, seguindo o exemplo da Microsoft adaptado para Delphi.
+The recommended approach for your case is a native implementation of .NET Core hosting using the nethost and hostfxr libraries, following the Microsoft example adapted for Delphi.
 
-### Passo 1: Configurar o Projeto
+### Step 1: Configure the Project
 
-1. Crie um projeto Delphi
-2. Adicione as declarações e mapeamentos para as APIs de hosting do .NET Core
+1. Create a Delphi project
+2. Add the declarations and mappings for the .NET Core hosting APIs
 
-### Passo 2: Declarar as Estruturas e APIs necessárias
+### Step 2: Declare the Required Structures and APIs
 
-Primeiro, você precisa criar mapeamentos Delphi para as estruturas e funções do nethost e hostfxr. Isto inclui:
+First, you need to create Delphi mappings for the nethost and hostfxr structures and functions. This includes:
 
 ```delphi
-// Adaptar cabeçalhos do nethost.h
+// Adapt headers of nethost.h
 type
   char_t = WideChar;  // No Windows
   
-  // Estrutura de parâmetros para get_hostfxr_path
+  // Parameter structure for get_hostfxr_path
   get_hostfxr_parameters = record
     size: SIZE_T;
     assembly_path: PWideChar;
@@ -68,19 +68,19 @@ type
   end;
   Pget_hostfxr_parameters = ^get_hostfxr_parameters;
 
-// Declarar a função da nethost.dll
+// Declare the function of nethost.dll
 function get_hostfxr_path(buffer: PWideChar; buffer_size: PSIZE_T; parameters: Pget_hostfxr_parameters): Integer; stdcall; external 'nethost.dll';
 ```
 
 Em seguida, declare as estruturas e funções da hostfxr:
 
 ```delphi
-// Tipo para os handles do hostfxr
+// Type for the handles of the hostfxr
 type
   hostfxr_handle = Pointer;
   Phostfxr_handle = ^hostfxr_handle;
   
-  // Tipos de delegates para funcionalidades do runtime
+  // Delegate types for runtime functionality
   hostfxr_delegate_type = (
     hdt_com_activation,
     hdt_load_in_memory_assembly,
@@ -90,7 +90,7 @@ type
     hdt_load_assembly_and_get_function_pointer
   );
 
-// Funções essenciais do hostfxr
+// Essential functions of hostfxr
 type
   hostfxr_initialize_for_runtime_config_fn = function(runtime_config_path: PWideChar; parameters: Pointer; host_context_handle: Phostfxr_handle): Integer; stdcall;
   
@@ -99,9 +99,9 @@ type
   hostfxr_close_fn = function(host_context_handle: hostfxr_handle): Integer; stdcall;
 ```
 
-### 2. Implementação Delphi da API de Hosting
+### 2. Delphi Implementation of the Hosting API
 
-Para o lado Delphi, precisamos implementar o código que carrega o runtime .NET Core e comunica-se com nossa biblioteca bridge:
+For the Delphi side, we need to implement the code that loads the .NET Core runtime and communicates with our bridge library:
 
 ```delphi
 unit NetCoreHost;
@@ -112,14 +112,14 @@ uses
   System.SysUtils, Winapi.Windows;
 
 const
-  // Retornos da API
+  // API Returns
   Success                            = 0;
   Success_HostAlreadyInitialized     = 1;
   HostInvalidState                   = 2;
   CoreHostIncompatibleConfig         = 0x80008207;
   CoreHostLibLoadFailure             = 0x80008098;
   
-  // Tipos de delegate
+  // Types of delegate
   HDT_COM_ACTIVATION                      = 0;
   HDT_LOAD_IN_MEMORY_ASSEMBLY            = 1;
   HDT_WINRT_ACTIVATION                   = 2;
@@ -129,11 +129,11 @@ const
   HDT_GET_FUNCTION_POINTER               = 6;
 
 type
-  // Tipos para manipulação da API .NET Core
+  // Types for .NET Core API manipulation
   THostfxrHandle = Pointer;
   PHostfxrHandle = ^THostfxrHandle;
 
-  // Tipos para as funções importadas de hostfxr.dll
+  // Types for functions imported from hostfxr.dll
   THostfxrInitializeForRuntimeConfigFn = function(
     runtime_config_path: PWideChar;
     parameters: Pointer;
@@ -147,7 +147,7 @@ type
   THostfxrCloseFn = function(
     host_context_handle: THostfxrHandle): Integer; stdcall;
 
-  // Tipo do delegate para carregar assembly e obter função
+  // Delegate type to load assembly and get function
   TLoadAssemblyAndGetFunctionPointerFn = function(
     assembly_path: PWideChar;
     type_name: PWideChar;
@@ -156,7 +156,7 @@ type
     reserved: Pointer;
     delegate: PPointer): Integer; stdcall;
 
-  // Tipo para os métodos da biblioteca bridge
+  // Type for bridge library methods
   TCreateInstanceFn = function(
     assemblyName: PWideChar;
     typeName: PWideChar;
@@ -170,7 +170,7 @@ type
     argsCount: Integer;
     resultPtr: Pointer): Integer; stdcall;
 
-  // Classe principal para hosting do .NET Core
+  // Core class for .NET Core hosting
   TNetCoreHost = class
   private
     FHostfxrHandle: THostfxrHandle;
@@ -179,15 +179,15 @@ type
     FBridgeDll: string;
     FRuntimeConfigPath: string;
     
-    // Ponteiros para as funções importadas
+    // Pointers to imported functions
     FInitializeFn: THostfxrInitializeForRuntimeConfigFn;
     FGetDelegateFn: THostfxrGetRuntimeDelegateFn;
     FCloseFn: THostfxrCloseFn;
     
-    // Ponteiro para o delegate do runtime
+    // Pointer to the runtime delegate
     FLoadAssemblyFn: TLoadAssemblyAndGetFunctionPointerFn;
     
-    // Ponteiros para funções da bridge
+    // Pointers to bridge functions
     FCreateInstanceFn: TCreateInstanceFn;
     FInvokeMethodFn: TInvokeMethodFn;
     
@@ -211,7 +211,7 @@ implementation
 uses
   System.IOUtils;
 
-// Função da nethost.dll
+// Function of nethost.dll
 function get_hostfxr_path(buffer: PWideChar; buffer_size: PSIZE_T; parameters: Pointer): Integer; stdcall; external 'nethost.dll';
 
 { TNetCoreHost }
@@ -223,15 +223,15 @@ begin
   FHostfxrLib := 0;
   FHostfxrHandle := nil;
   
-  // Caminho do runtime deve ser passado pelo usuário
-  // Exemplo: C:\Program Files\dotnet\shared\Microsoft.NETCore.App\6.0.9
+  // Runtime path must be passed by user
+  // Example: C:\Program Files\dotnet\shared\Microsoft.NETCore.App\6.0.9
   FNetstandardDll := TPath.Combine(NetCoreRuntimePath, 'DelphiBridge.dll');
   FRuntimeConfigPath := TPath.Combine(ExtractFilePath(FNetstandardDll), 'DelphiBridge.runtimeconfig.json');
 end;
 
 destructor TNetCoreHost.Destroy;
 begin
-  // Limpar os recursos do runtime
+  // Clean up runtime resources
   if FHostfxrHandle <> nil then
     FCloseFn(FHostfxrHandle);
     
@@ -254,19 +254,19 @@ var
 begin
   Result := False;
   
-  // Obter o caminho para hostfxr.dll
+  // Get the path to hostfxr.dll
   buffer_size := Length(buffer);
   if get_hostfxr_path(@buffer[0], @buffer_size, nil) <> 0 then
     Exit;
     
   hostfxr_path := buffer;
   
-  // Carregar a biblioteca hostfxr
+  // Load the hostfxr library
   FHostfxrLib := LoadLibrary(PChar(hostfxr_path));
   if FHostfxrLib = 0 then
     Exit;
     
-  // Obter os ponteiros para as funções
+  // Get pointers to functions
   FInitializeFn := GetProcAddress(FHostfxrLib, 'hostfxr_initialize_for_runtime_config');
   FGetDelegateFn := GetProcAddress(FHostfxrLib, 'hostfxr_get_runtime_delegate');
   FCloseFn := GetProcAddress(FHostfxrLib, 'hostfxr_close');
@@ -281,7 +281,7 @@ function TNetCoreHost.InitializeRuntime: Boolean;
 var
   rc: Integer;
 begin
-  // Inicializar o runtime com o arquivo de configuração
+  // Initialize the runtime with the configuration file
   rc := FInitializeFn(PWideChar(FRuntimeConfigPath), nil, @FHostfxrHandle);
   
   Result := (rc = Success) or (rc = Success_HostAlreadyInitialized);
@@ -294,7 +294,7 @@ var
 begin
   Result := False;
   
-  // Obter o delegate para carregar assemblies
+  // Get the delegate to load assemblies
   delegate := nil;
   rc := FGetDelegateFn(FHostfxrHandle, HDT_LOAD_ASSEMBLY_AND_GET_FUNCTION_POINTER, @delegate);
   
@@ -312,7 +312,7 @@ var
 begin
   Result := False;
   
-  // Carregar a função CreateInstance da bridge
+  // Load the bridge's CreateInstance function
   createInstancePtr := nil;
   rc := FLoadAssemblyFn(
     PWideChar(FNetstandardDll),
@@ -327,13 +327,13 @@ begin
     
   FCreateInstanceFn := createInstancePtr;
   
-  // Carregar a função InvokeMethod da bridge
+  // Load the bridge's InvokeMethod function
   invokeMethodPtr := nil;
   rc := FLoadAssemblyFn(
     PWideChar(FNetstandardDll),
     PWideChar('DelphiBridge.Bridge, DelphiBridge'),
     PWideChar('InvokeMethod'),
-    nil,  // Sem tipo de delegate específico - usando o padrão
+    nil,  // No specific delegate type - using default
     nil,
     @invokeMethodPtr);
     
@@ -353,7 +353,7 @@ begin
   Result := FCreateInstanceFn(
     PWideChar(AssemblyName),
     PWideChar(TypeName),
-    nil,  // Sem argumentos
+    nil,  // No arguments
     0);
 end;
 
@@ -374,13 +374,13 @@ end;
 end.
 ```
 
-Essa implementação é mais robusta que o exemplo anterior e fornece uma base sólida para integrar Delphi com .NET Core.
+This implementation is more robust than the previous example and provides a solid foundation for integrating Delphi with .NET Core.
 
 
-### Passo 4: Inicializar o Runtime e Carregar Assembly
+### Step 4: Initialize the Runtime and Load Assembly
 
 ```delphi
-// Tipo para o delegate que carrega assemblies e obtém ponteiros de função
+// Type for delegate that loads assemblies and gets function pointers
 type
   load_assembly_and_get_function_pointer_fn = function(
     assembly_path: PWideChar;
@@ -398,24 +398,24 @@ var
 begin
   Result := nil;
   
-  // Inicializar o runtime
+  // Initialize the runtime
   cxt := nil;
   rc := init_fptr(PWideChar(config_path), nil, @cxt);
   if (rc <> 0) or (cxt = nil) then
   begin
-    // Manipulação de erro
+    // Error handling
     close_fptr(cxt);
     Exit;
   end;
   
-  // Obter o delegate para carregar assemblies
+  // Get the delegate to load assemblies
   load_assembly_and_get_function_pointer := nil;
   rc := get_delegate_fptr(cxt, hdt_load_assembly_and_get_function_pointer, 
                          @load_assembly_and_get_function_pointer);
   
   if (rc <> 0) or (load_assembly_and_get_function_pointer = nil) then
   begin
-    // Manipulação de erro
+    // Error handling
     close_fptr(cxt);
     Exit;
   end;
@@ -425,17 +425,17 @@ begin
 end;
 ```
 
-### Passo 5: Chamada de Método Gerenciado
+### Step 5: Managed Method Call
 
 ```delphi
-// Exemplo de estrutura para passar argumentos
+// Example of a structure for passing arguments
 type
   lib_args = record
     message: PWideChar;
     number: Integer;
   end;
   
-// Tipo para o método gerenciado a ser chamado
+// Type for the managed method to be called
 type
   component_entry_point_fn = function(args: Pointer; size_bytes: Integer): Integer; stdcall;
 
@@ -448,20 +448,20 @@ var
   config_path: string;
   rc: Integer;
 begin
-  // Caminho para o arquivo de configuração runtime do .NET
+  // Path to the .NET runtime configuration file
   config_path := 'MeuComponente.runtimeconfig.json';
   
-  // Obter o delegate para carregar assemblies
+  // Get the delegate to load assemblies
   load_assembly := GetDotNetLoadAssembly(config_path);
   if load_assembly = nil then
     Exit;
   
-  // Configurar os caminhos e nomes
+  // Configure paths and names
   assembly_path := 'MeuComponente.dll';
   type_name := 'MeuComponente.Classe, MeuComponente';
   method_name := 'MetodoExemplo';
   
-  // Carregar o assembly e obter o ponteiro para o método
+  // Load the assembly and get the pointer to the method
   hello := nil;
   rc := load_assembly(PWideChar(assembly_path), PWideChar(type_name), PWideChar(method_name), 
                      nil, nil, @hello);
@@ -469,21 +469,21 @@ begin
   if (rc <> 0) or (hello = nil) then
     Exit;
   
-  // Preparar argumentos e chamar o método
-  args.message := 'Olá do Delphi!';
+  // Prepare arguments and call the method
+  args.message := 'Hello from Delphi!';
   args.number := 42;
   
   rc := hello(@args, SizeOf(args));
   
-  ShowMessage('Resultado da chamada: ' + IntToStr(rc));
+  ShowMessage('Call result: ' + IntToStr(rc));
 end;
 ```
 
-## Componentes da Solução Proposta
+## Components of the Proposed Solution
 
-### 1. Biblioteca de Bridge em C#
+### 1. Bridge Library in C#
 
-Esta biblioteca atua como a interface de alto nível para o Delphi, abstraindo a complexidade das chamadas entre os ambientes.
+This library acts as the high-level interface to Delphi, abstracting away the complexity of calls between environments.
 
 ```csharp
 using System;
@@ -493,21 +493,21 @@ using System.Collections.Generic;
 
 namespace DelphiBridge
 {
-    // Classe principal exposta para Delphi
+    // Main class exposed to Delphi
     public static class Bridge
     {
-        // Cache de objetos para referência por ID
+        // Object cache for reference by ID
         private static Dictionary<int, object> _objectCache = new Dictionary<int, object>();
         private static int _nextObjectId = 1;
         
-        // Cache de tipos para referência rápida
+        // Type cache for quick reference
         private static Dictionary<string, Type> _typeCache = new Dictionary<string, Type>();
         
-        // Para funções que retornam objetos
+        // For functions that return objects
         private static Dictionary<int, object> _resultCache = new Dictionary<int, object>();
         private static int _nextResultId = 1;
 
-        // Método chamado pelo Delphi para criar uma instância
+        // Method called by Delphi to create an instance
         [UnmanagedCallersOnly]
         public static int CreateInstance(IntPtr assemblyNamePtr, IntPtr typeNamePtr, IntPtr argsPtr, int argsCount)
         {
@@ -516,12 +516,12 @@ namespace DelphiBridge
                 string assemblyName = Marshal.PtrToStringUTF8(assemblyNamePtr);
                 string typeName = Marshal.PtrToStringUTF8(typeNamePtr);
                 
-                // Localizar/carregar o tipo
+                // Find/Load Type
                 Type type = GetTypeFromName(assemblyName, typeName);
                 if (type == null)
                     return -1;
                 
-                // Criar instância (com ou sem parâmetros)
+                // Create instance (with or without parameters)
                 object instance;
                 if (argsCount > 0 && argsPtr != IntPtr.Zero)
                 {
@@ -533,7 +533,7 @@ namespace DelphiBridge
                     instance = Activator.CreateInstance(type);
                 }
                 
-                // Armazenar e retornar ID
+                // Store and return ID
                 return RegisterObject(instance);
             }
             catch (Exception ex)
@@ -543,7 +543,7 @@ namespace DelphiBridge
             }
         }
         
-        // Chamada de método
+        // Method call
         [UnmanagedCallersOnly]
         public static int InvokeMethod(int objectId, IntPtr methodNamePtr, IntPtr argsPtr, int argsCount, IntPtr resultPtr)
         {
@@ -561,21 +561,21 @@ namespace DelphiBridge
                 if (argsCount > 0 && argsPtr != IntPtr.Zero)
                     args = DeserializeArgs(argsPtr, argsCount);
                 
-                // Invocar método
+                // Invoke method
                 object result = type.InvokeMember(
                     methodName, 
                     BindingFlags.Instance | BindingFlags.Public | BindingFlags.InvokeMethod, 
                     null, instance, args);
                 
-                // Armazenar resultado se necessário
+                // Store result if necessary
                 if (result != null && resultPtr != IntPtr.Zero)
                 {
                     int resultId = RegisterResult(result);
                     Marshal.WriteInt32(resultPtr, resultId);
-                    return 1; // Sucesso com resultado
+                    return 1; // Success with results
                 }
                 
-                return 0; // Sucesso sem resultado
+                return 0; // Success without result
             }
             catch (Exception ex)
             {
@@ -584,7 +584,7 @@ namespace DelphiBridge
             }
         }
         
-        // Método auxiliar para registrar objetos
+        // Helper method for registering objects
         private static int RegisterObject(object obj)
         {
             int id = _nextObjectId++;
@@ -592,7 +592,7 @@ namespace DelphiBridge
             return id;
         }
         
-        // Método auxiliar para registrar resultados
+        // Auxiliary method for recording results
         private static int RegisterResult(object result)
         {
             int id = _nextResultId++;
@@ -600,14 +600,14 @@ namespace DelphiBridge
             return id;
         }
         
-        // Desserialização de argumentos
+        // Argument deserialization
         private static object[] DeserializeArgs(IntPtr argsPtr, int count)
         {
-            // Implementação simplificada - em uma versão real,
-            // teria código para desserializar diferentes tipos de argumentos
+            // Simplified implementation - in a real version,
+            // there would be code to deserialize different types of arguments
             object[] result = new object[count];
             
-            // Exemplo simplificado para inteiros
+            // Simplified example for integers
             for (int i = 0; i < count; i++)
             {
                 result[i] = Marshal.ReadInt32(argsPtr, i * sizeof(int));
@@ -616,7 +616,7 @@ namespace DelphiBridge
             return result;
         }
         
-        // Helper para localizar tipos
+        // Helper to locate types
         private static Type GetTypeFromName(string assemblyName, string typeName)
         {
             string key = $"{assemblyName}|{typeName}";
@@ -640,21 +640,21 @@ namespace DelphiBridge
 }
 ```
 
-## Considerações Importantes
+## Important Considerations
 
-1. **Compatibilidade de Versões**: Certifique-se de que o .NET Core usado na biblioteca está disponível no sistema ou é distribuído com sua aplicação.
+1. **Version Compatibility**: Make sure the .NET Core version used in the library is available on your system or distributed with your application.
 
-2. **runtimeconfig.json**: Este arquivo é essencial para inicializar o runtime correto. Para bibliotecas, adicione `<GenerateRuntimeConfigurationFiles>True</GenerateRuntimeConfigurationFiles>` ao arquivo .csproj.
+2. **runtimeconfig.json**: This file is essential for initializing the correct runtime. For libraries, add `<GenerateRuntimeConfigurationFiles>True</GenerateRuntimeConfigurationFiles>` to the .csproj file.
 
-3. **Gerenciamento de Memória**: Tenha cuidado com a passagem de strings e outros objetos complexos entre Delphi e .NET Core.
+3. **Memory Management**: Be careful when passing strings and other complex objects between Delphi and .NET Core.
 
-4. **Ciclo de Vida dos Objetos**: Por padrão, o exemplo acima usa métodos estáticos. Para trabalhar com instâncias, você precisará implementar um sistema de rastreamento de referências entre os ambientes.
+4. **Object Lifecycle**: By default, the example above uses static methods. To work with instances, you will need to implement a reference tracking system between environments.
 
-5. **Multiplataforma**: A implementação mostrada funciona em Windows. Para Linux e macOS, são necessárias adaptações nas declarações de tipos e carregamento de bibliotecas.
+5. **Multiplatform**: The implementation shown works on Windows. For Linux and macOS, adaptations to type declarations and library loading are necessary.
 
-## Exemplo de Uso da Implementação Proposta
+## Example of Using the Proposed Implementation
 
-Para facilitar o uso da nossa solução, podemos criar uma camada de abstração de alto nível que simplifica consideravelmente a interação com o .NET Core:
+To make our solution easier to use, we can create a high-level abstraction layer that significantly simplifies interaction with .NET Core:
 
 ```delphi
 unit NetCoreObjects;
@@ -665,7 +665,7 @@ uses
   System.SysUtils, System.Generics.Collections, System.TypInfo, NetCoreHost;
 
 type
-  // Classe base para todas as classes que encapsulam objetos .NET
+  // Base class for all classes that encapsulate .NET objects
   TNetCoreObject = class
   private
     FObjectId: Integer;
@@ -680,7 +680,7 @@ type
     property ObjectId: Integer read GetObjectId;
   end;
 
-  // Classe base para factory de proxies .NET
+  // Base class for .NET proxy factory
   TNetCoreProxyFactory = class
   private
     FNetCoreHost: TNetCoreHost;
@@ -692,9 +692,9 @@ type
     function CreateInstance: TNetCoreObject; virtual;
   end;
 
-// Código para uma classe específica (como exemplo):
+// Code for a specific class (as an example):
 type
-  // Proxy para a classe Calculadora do .NET
+  // Proxy for the .NET Calculator class
   TCalculadora = class(TNetCoreObject)
   public
     function Somar(A, B: Integer): Integer;
@@ -703,7 +703,7 @@ type
     function Dividir(A, B: Double): Double;
   end;
 
-  // Factory para Calculadora
+  // Factory for Calculator
   TCalculadoraFactory = class(TNetCoreProxyFactory)
   public
     constructor Create(ANetCoreHost: TNetCoreHost);
@@ -723,8 +723,8 @@ end;
 
 destructor TNetCoreObject.Destroy;
 begin
-  // Aqui seria ideal ter um método para liberar o objeto no lado .NET
-  // mas usaremos o garbage collector dele por enquanto
+  // Here, it would be ideal to have a method to release the object on the .NET side.
+  // but we'll use its garbage collector for now.
   inherited;
 end;
 
@@ -739,19 +739,19 @@ var
   ArgsPtr: Pointer;
   ArgsCount: Integer;
 begin
-  // Serializar argumentos - implementação simplificada
-  // Na prática, você precisaria implementar a conversão entre Variant do Delphi
-  // e os tipos que .NET espera
+  // Serialize arguments - simplified implementation
+  // In practice, you would need to implement the conversion between Delphi Variant
+  // and the types that .NET expects
   
   ArgsPtr := nil;
   ArgsCount := Length(Args);
   
-  // Invocar o método
+  // Invoke the method
   ResultValue := 0;
   FNetCoreHost.InvokeMethod(FObjectId, MethodName, ArgsPtr, ArgsCount, @ResultValue);
   
-  // Converter o ResultValue para o valor adequado
-  // Aqui também precisaria de implementação para converter tipos
+  // Convert the ResultValue to the appropriate value
+  // Here you would also need an implementation to convert types
   Result := ResultValue;
 end;
 
@@ -817,7 +817,7 @@ end;
 end.
 ```
 
-### Exemplo de Uso:
+### Usage Example:
 
 ```delphi
 program ExemploCoreIntegracao;
@@ -839,7 +839,7 @@ var
 
 begin
   try
-    // Inicializar o host .NET Core
+    // Initialize the .NET Core host
     Host := TNetCoreHost.Create('C:\Program Files\dotnet\shared\Microsoft.NETCore.App\6.0.9');
     try
       if not Host.Initialize then
@@ -848,17 +848,17 @@ begin
         Exit;
       end;
       
-      // Criar a factory
+      // Create the factory
       CalcFactory := TCalculadoraFactory.Create(Host);
       try
-        // Criar e usar a instância da calculadora
+        // Create and use the calculator instance
         Calculadora := CalcFactory.CreateInstance;
         try
           Resultado := Calculadora.Somar(10, 32);
-          Writeln('Resultado da soma: ', Resultado);
+          Writeln('Result of the sum: ', Resultado);
           
           Resultado := Calculadora.Multiplicar(5, 7);
-          Writeln('Resultado da multiplicação: ', Resultado);
+          Writeln('Multiplication result: ', Resultado);
         finally
           Calculadora.Free;
         end;
@@ -869,7 +869,7 @@ begin
       Host.Free;
     end;
     
-    Writeln('Pressione Enter para sair...');
+    Writeln('Press Enter to exit...');
     Readln;
   except
     on E: Exception do
@@ -878,55 +878,55 @@ begin
 end.
 ```
 
-Esta abordagem orientada a objetos fornece uma interface Delphi limpa para trabalhar com objetos .NET, escondendo a complexidade da infraestrutura de interoperabilidade.
+This object-oriented approach provides a clean Delphi interface for working with .NET objects, hiding the complexity of the interoperability infrastructure.
 
-## Análise das Implementações Existentes
+## Analysis of Existing Implementations
 
-Após avaliar o código disponível, identifiquei três abordagens principais:
+After evaluating the available code, I identified three main approaches:
 
-### 1. DDNRuntime (Solução Chinesa)
+### 1. DDNRuntime (Chinese Solution)
 
-Esta implementação parece ser bastante completa e utiliza diretamente as APIs nativas do .NET Core:
+This implementation appears to be quite complete and directly uses the native .NET Core APIs:
 
-- Usa a biblioteca coreclr.dll diretamente, chamando funções como `coreclr_initialize` e `coreclr_create_delegate`
-- Gerencia o ciclo de vida do runtime .NET Core
-- Implementa mapeamento de tipos entre Delphi e .NET Core
-- Suporta chamadas de métodos, propriedades e eventos
+- Uses the coreclr.dll library directly, calling functions such as `coreclr_initialize` and `coreclr_create_delegate`
+- Manages the .NET Core runtime lifecycle
+- Implements type mapping between Delphi and .NET Core
+- Supports method, property, and event calls
 
-A arquitetura é robusta, porém complexa, utilizando um DLL intermediário (NETCoreCLR.dll) para facilitar a comunicação.
+The architecture is robust but complex, using an intermediate DLL (NETCoreCLR.dll) to facilitate communication.
 
-### 2. dotNetCore4Delphi (Solução Comercial)
+### 2. dotNetCore4Delphi (Commercial Solution)
 
-Esta implementação oferece uma API mais elegante e de alto nível:
+This implementation offers a more elegant and high-level API:
 
-- Encapsula as complexidades da interação com o .NET Core
-- Usa a API nethost/hostfxr para localizar e inicializar o runtime
-- Implementa mapeamento de tipos e injeção de dependência
-- Oferece ferramentas de geração de código para facilitar a integração
+- Encapsulates the complexities of interacting with .NET Core
+- Uses the nethost/hostfxr API to locate and initialize the runtime
+- Implements type mapping and dependency injection
+- Offers code generation tools to facilitate integration
 
-A arquitetura é mais modular e orientada a objetos, mas o licenciamento por instalação torna inviável para seu caso de uso.
+The architecture is more modular and object-oriented, but per-install licensing makes it impractical for your use case.
 
-### 3. API de Hosting Direta da Microsoft
+### 3. Microsoft Direct Hosting API
 
-Esta é a abordagem mais fundamental, utilizando diretamente:
+This is the most fundamental approach, directly using:
 
-- `nethost.h` para localizar o hostfxr
-- `hostfxr.h` para inicializar o runtime e obter delegates
-- `coreclr_delegates.h` para trabalhar com funções remotas
+- `nethost.h` to locate hostfxr
+- `hostfxr.h` to initialize the runtime and obtain delegates
+- `coreclr_delegates.h` to work with remote functions
 
-## Conclusão e Recomendações
+## Conclusion and Recommendations
 
-A integração entre Delphi e .NET Core é viável através da API de hosting nativa ou bibliotecas como as analisadas acima. A abordagem mais adequada para cenários com muitas estações de trabalho parece ser desenvolver uma solução própria baseada nos princípios da API de hosting da Microsoft, mas com algumas lições das implementações existentes.
+Integration between Delphi and .NET Core is feasible through the native hosting API or libraries like those discussed above. The most appropriate approach for scenarios with many workstations seems to be to develop a custom solution based on the principles of Microsoft's hosting API, but with some lessons learned from existing implementations.
 
-Recomendado uma estratégia em duas partes:
+A two-part strategy is recommended:
 
-1. **Componente Delphi**: Implementar um wrapper para a API de hosting do .NET Core que cuida do carregamento do runtime, localização de assemblies e chamada de métodos básicos.
+1. Delphi Component: Implement a wrapper for the .NET Core hosting API that handles runtime loading, assemblies location, and basic method calling.
 
-2. **Biblioteca Helper em C#**: Criar uma biblioteca em .NET Core que serve como uma "ponte" facilitadora, expondo uma API simplificada para o Delphi e lidando com a reflexão, gerenciamento de objetos, e conversões de tipos no lado .NET.
+2. C# Helper Library: Create a .NET Core library that serves as a facilitating "bridge," exposing a simplified API to Delphi and handling reflection, object management, and type conversions on the .NET side.
 
-Esta abordagem equilibra a necessidade de controle total da solução (evitando dependências externas com licenciamento complexo) com a facilidade de desenvolvimento, concentrando o código mais complexo no lado C# onde é mais fácil trabalhar com reflexão.
+This approach balances the need for complete control of the solution (avoiding external dependencies with complex licensing) with ease of development, concentrating the most complex code on the C# side where it is easier to work with reflection.
 
-## Recursos Adicionais
+## Additional Resources
 
 - [Documentação oficial da Microsoft sobre hosting do .NET Core](https://learn.microsoft.com/pt-br/dotnet/core/tutorials/netcore-hosting)
 - [Repositório de exemplos em C++ da Microsoft](https://github.com/dotnet/samples/tree/main/core/hosting)
