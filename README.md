@@ -72,7 +72,7 @@ type
 function get_hostfxr_path(buffer: PWideChar; buffer_size: PSIZE_T; parameters: Pget_hostfxr_parameters): Integer; stdcall; external 'nethost.dll';
 ```
 
-Em seguida, declare as estruturas e funções da hostfxr:
+Next, declare the hostfxr structures and functions:
 
 ```delphi
 // Type for the handles of the hostfxr
